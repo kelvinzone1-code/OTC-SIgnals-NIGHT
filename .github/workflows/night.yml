@@ -1,0 +1,44 @@
+name: Night Signals
+
+on:
+  schedule:
+    # 20:00 to 05:59 UTC = 9:00 PM to 6:59 AM Lagos time
+    - cron: '*/5 20-23,0-5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: night-bot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run night bot
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHANNEL: ${{ secrets.TG_CHANNEL }}
+          IQ_EMAIL: ${{ secrets.IQ_EMAIL }}
+          IQ_PASS: ${{ secrets.IQ_PASS }}
+        run: python night_bot.py
+
+      - name: Save state
+        if: always()
+        run: |
+          git config user.name "night-bot"
+          git config user.email "night-bot@users.noreply.github.com"
+          git add state_night.json || true
+          git diff --cached --quiet || (git commit -m "night state" && git pull --rebase && git push)
